@@ -1,3 +1,8 @@
+/*
+This code was initially written by Sebastian Baunsgaard and edited by Omar Shahbaz Khan and Iman Elghandour
+ */
+
+
 package dk.itu.courses.bigdatamanagement.p3.osmparser
 
 
@@ -33,6 +38,17 @@ object OSMParser {
                    _crossingEdges:List[String]
                  )
 
+  case class EdgeType(
+                       _id: String,
+                       _priority:Int,
+                       _numLanes:Int,
+                       _speed:Float,
+                       _allow: List[String],
+                       _oneway: Int,
+                       _width: Float,
+                       _sidewalkWidth: Float
+                     )
+
 //_allow, _disallow, _id, _index, _length, _shape, _speed, _width, param
   case class Lane(
                    _id: String,
@@ -58,7 +74,19 @@ object OSMParser {
 
 
 
+  case class tlLogic(
+                      _id: String,
+                      _type:String,
+                      _programID: String,
+                      _offset:String
+                    )
 
+  case class tlLogicPhase(
+                           _duration:String,
+                           _state:String,
+                           _minDur:String,
+                           _maxDur:String
+                    )
 
   //load an xml file
   def loadXMLFile(path:String, rowTag:String) = {
@@ -95,6 +123,28 @@ object OSMParser {
       .option("header", "true")
       .json("osmMapEdges.json")
 
+  }
+
+  def parsingOSMMapEdgeTypes(mapDF:DataFrame) ={
+    val edgeTypesDS: Dataset[Row] = mapDF
+      .select(explode(col("type")))
+      .toDF("type")
+      .select(
+        col("type._id"),
+        col("type._priority"),
+        col("type._numLanes"),
+        col("type._speed"),
+        col("type._allow"),
+        col("type._oneway"),
+        col("type._width"),
+        col("type._sidewalkWidth"))
+      .as("EdgeType")
+
+    edgeTypesDS.
+      repartition(1)
+      .write
+      .option("header", "true")
+      .json("osmMapEdgeTypes.json")
   }
 
 
@@ -151,6 +201,47 @@ object OSMParser {
 
   }
 
+  def parsingOSMMaptlLogic(mapDF:DataFrame)={
+    val tlLogicDS: Dataset[Row] = mapDF
+      .select(explode(col("tlLogic")))
+      .toDF("tlLogic")
+      .select(
+        col("tlLogic._id"),
+        col("tlLogic._type"),
+        col("tlLogic._programID"),
+        col("tlLogic._offset"))
+      .as("tlLogic")
+
+    tlLogicDS.
+      repartition(1)
+      .write
+      .option("header", "true")
+      .json("osmMapTrafficLightLogic.json")
+  }
+
+
+  def parsingOSMMaptlLogicPhases(mapDF:DataFrame)={
+
+    val tlLogicPhaseDS: Dataset[Row] = mapDF
+      .select(explode(col("tlLogic")))
+      .toDF("tlLogic")
+      .select(col("tlLogic"),col("tlLogic.phase"))
+      .toDF("tlLogic","phase")
+      .select(
+        col("tlLogic._id"),
+        col("phase._duration"),
+        col("phase._state"),
+        col("phase._minDur"),
+        col("phase._maxDur"))
+      .as("tlLogicPhase")
+
+    tlLogicPhaseDS.
+      repartition(1)
+      .write
+      .option("header", "true")
+      .json("osmMapTrafficLightLogicPhases.json")
+  }
+
 
   def main(args: Array[String]): Unit = {
 
@@ -158,10 +249,13 @@ object OSMParser {
     val loadedMapDF: DataFrame = loadXMLFile("./src/main/resources/osm.net.xml","net")
 
     //parse xml file of the map
-    parsingOSMMapEdges(loadedMapDF)
-    parsingOSMMapLanes(loadedMapDF)
-    parsingOSMMapJunctions(loadedMapDF)
-  
+//    parsingOSMMapEdges(loadedMapDF)
+//    parsingOSMMapLanes(loadedMapDF)
+//    parsingOSMMapJunctions(loadedMapDF)
+//    parsingOSMMaptlLogic(loadedMapDF)
+//    parsingOSMMaptlLogicPhases(loadedMapDF)
+    parsingOSMMapEdgeTypes(loadedMapDF)
+
     spark.
       stop
   }
